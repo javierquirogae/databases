@@ -13,7 +13,7 @@ class Playlist(db.Model):
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text)
     
-    song = db.relationship('Song', backref="playlists")
+    song = db.relationship('Song', secondary="playlists_songs", backref="playlists")
 
 
 class Song(db.Model):
