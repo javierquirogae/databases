@@ -14,10 +14,6 @@ connect_db(app)
 
 app.config['SECRET_KEY'] = "I'LL NEVER TELL!!"
 
-# Having the Debug Toolbar show redirects explicitly is often useful;
-# however, if you want to turn it off, you can uncomment this line:
-#
-# app.config['DEBUG_TB_INTERCEPT_REDIRECTS'] = False
 
 debug = DebugToolbarExtension(app)
 
@@ -29,11 +25,8 @@ def root():
     return redirect("/playlists")
 
 
-##############################################################################
-# Playlist routes
 
-
-@app.route("/playlists")
+@app.route("/playlists", methods=["GET"])
 def show_all_playlists():
     """Return a list of playlists."""
 
@@ -44,15 +37,10 @@ def show_all_playlists():
 @app.route("/playlists/<int:playlist_id>")
 def show_playlist(playlist_id):
     """Show detail on specific playlist."""
-
-    # ADD THE NECESSARY CODE HERE FOR THIS ROUTE TO WORK
-
-
-
-
-
-
-
+    playlist = Playlist.query.get_or_404(playlist_id)
+    songs = playlist.song
+    return render_template("playlist.html", playlist=playlist,songs=songs)
+  
 
 
 @app.route("/playlists/add", methods=["GET"])
@@ -61,105 +49,84 @@ def show_playlist_form():
     return render_template("new_playlist.html", form=PlaylistForm())
   
 
- 
+@app.route("/playlists/add", methods=["POST"])
+def add_playlist():
+    """Handle add-playlist form:"""
+    form = PlaylistForm()
+    name = form.name.data
+    description = form.description.data
+    new_playlist = Playlist(name=name, description=description)
+    db.session.add(new_playlist)
+    db.session.commit()
+    return redirect("/playlists")
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# @app.route("/playlists/add", methods=["POST"])
-# def add_playlist():
-#     """Handle add-playlist form:
-
-#     - if form not filled out or invalid: show form
-#     - if valid: add playlist to SQLA and redirect to list-of-playlists
-#     """
-
-    # ADD THE NECESSARY CODE HERE FOR THIS ROUTE TO WORK
-
-
-##############################################################################
-# Song routes
-
-
-@app.route("/songs")
+@app.route("/songs", methods=["GET"])
 def show_all_songs():
     """Show list of songs."""
-
     songs = Song.query.all()
     return render_template("songs.html", songs=songs)
 
 
-@app.route("/songs/<int:song_id>")
+@app.route("/songs/<int:song_id>", methods=["GET"])
 def show_song(song_id):
     """return a specific song"""
+    song = Song.query.get_or_404(song_id)
+    return render_template("song.html", song=song)
 
-    # ADD THE NECESSARY CODE HERE FOR THIS ROUTE TO WORK
 
+@app.route("/songs/add", methods=["GET"])
+def add_song_form():
+    """Show add-song form:"""
+    return render_template("new_song.html", form=SongForm())
 
-@app.route("/songs/add", methods=["GET", "POST"])
+@app.route("/songs/add", methods=["POST"])
 def add_song():
-    """Handle add-song form:
-
-    - if form not filled out or invalid: show form
-    - if valid: add playlist to SQLA and redirect to list-of-songs
-    """
-
-    # ADD THE NECESSARY CODE HERE FOR THIS ROUTE TO WORK
-
-
-
+    """Handle add-song form:"""
+    form = SongForm()
+    title = form.title.data
+    artist= form.artist.data
+    new_song = Song(title=title, artist=artist)
+    db.session.add(new_song)
+    db.session.commit()
+    return redirect("/songs")
 
 
 
-@app.route("/playlists/<int:playlist_id>/add-song", methods=["GET", "POST"])
-def add_song_to_playlist(playlist_id):
-    """Add a playlist and redirect to list."""
+@app.route("/playlists/<int:playlist_id>/add-song", methods=["GET"])
+def add_song_to_playlist_form(playlist_id):
+    """Show Add a playlist form."""
 
     playlist = Playlist.query.get_or_404(playlist_id)
     form = NewSongForPlaylistForm()
 
-    # Restrict form to songs not already on this playlist
-
-    curr_on_playlist = [s.id for s in playlist.songs]
+    curr_on_playlist = [s.id for s in playlist.song]
     form.song.choices = (db.session.query(Song.id, Song.title)
                         .filter(Song.id.notin_(curr_on_playlist))
                         .all())
 
-    if form.validate_on_submit():
-
-        # This is one way you could do this ...
-        playlist_song = PlaylistSong(song_id=form.song.data,
-                                    playlist_id=playlist_id)
-        db.session.add(playlist_song)
-
-        # Here's another way you could that is slightly more ORM-ish:
-        #
-        # song = Song.query.get(form.song.data)
-        # playlist.songs.append(song)
-
-        # Either way, you have to commit:
-        db.session.commit()
-
-        return redirect(f"/playlists/{playlist_id}")
-
     return render_template("add_song_to_playlist.html",
                             playlist=playlist,
                             form=form)
+
+
+@app.route("/playlists/<int:playlist_id>/add-song", methods=["POST"])
+def add_song_to_playlist(playlist_id):
+    """Add a playlist and redirect to list."""
+
+    form = NewSongForPlaylistForm()
+    song=form.song.data
+    song_id = ""
+    for c in song:
+        if c.isdigit():
+            song_id = song_id + c
+    int_song_id = int(song_id)
+    print(int_song_id)
+    print('*'*100)
+    print(type(int_song_id))
+    playlist_song = PlaylistSong(song_id=int_song_id, playlist_id=playlist_id)
+    db.session.add(playlist_song)
+    db.session.commit()
+
+    return redirect(f"/playlists/{playlist_id}")
